@@ -122,7 +122,103 @@ filename_angle = "data/GaitCycleLong/your_angle_file.xlsx"
 filename_vel   = "data/GaitCycleLong/your_velocity_file.xlsx"
 ```
 
-> **Data format:** Each patient has 8 measurement sessions (weeks 2, 3, 4, 6, 8, 10, 12, 24 post-stroke). Missing sessions are handled via a masking technique to preserve time-series integrity.
+Each patient has **8 longitudinal measurement sessions** conducted at weeks **2, 3, 4, 6, 8, 10, 12, and 24** post-stroke. Due to patient dropout, early discharge, or incomplete gait cycles, some sessions may be missing.
+
+---
+
+## Missing Data Handling: Masking Mechanism
+
+### Why masking?
+
+Clinical longitudinal data inevitably contains missing sessions — patients may withdraw from the study, be discharged early, or fail to complete a valid gait cycle at a given time point. Naive imputation strategies (e.g., forward-filling, mean substitution) risk distorting the sensitive temporal structure of gait trajectories and introducing spurious recovery patterns. To avoid this, this study adopts a **binary masking approach** that allows the model to train on all available data while completely excluding missing positions from every loss computation.
+
+### Step-by-step mechanism
+
+The masking pipeline spans three files: `load_long_custom_data.py` (data preparation), `dtc_longitudinal.py` (training), and is transparent to `models.py` (forward pass).
+
+#### 1. Sentinel substitution (`load_long_custom_data.py`)
+
+All `NaN` entries (missing sessions) in the raw Excel data are replaced with the sentinel value `999` before any processing:
+
+```python
+df_total = df_total.fillna(999)   # NaN → 999 placeholder
+```
+
+This ensures the data remains a dense numeric tensor throughout the pipeline.
+
+#### 2. Z-score normalization (`load_long_custom_data.py`)
+
+The entire data matrix — including the `999` sentinels — is normalized via `TimeSeriesScalerMeanVariance` (mean=0, std=1). After normalization, the `999` sentinel maps to a large positive outlier value, which is **distinct from any real gait signal** and thus reliably detectable.
+
+```python
+X_scaled = TimeSeriesScalerMeanVariance().fit_transform(tensor_data.cpu().numpy())
+```
+
+#### 3. Binary mask construction (`load_long_custom_data.py`)
+
+After reshaping to the final `(N_patients, 8_sessions, T)` tensor, the mask is built by checking for zero-valued entries. Valid data points are assigned `1`; missing (sentinel-derived) positions are assigned `0`:
+
+```python
+mask = np.where(X_re != 0, 1, 0).astype(float)
+mask = torch.tensor(mask, dtype=torch.float)   # shape: (N, 8, T)
+```
+
+The mask has the **identical shape** as the input data tensor, enabling element-wise multiplication in the loss functions.
+
+#### 4. Masked MSE loss — TAE pretraining (`dtc_longitudinal.py`)
+
+During TAE pretraining, `nn.MSELoss(reduction='none')` computes an **element-wise** loss matrix of the same shape as the input. The mask is then applied via element-wise multiplication, zeroing out all missing positions before the mean is computed over valid entries only:
+
+```python
+loss_mse = loss_ae(inputs.squeeze(1), x_reconstr)          # element-wise MSE, shape (N, 8, T)
+loss_mse = torch.sum(loss_mse * mask) / torch.sum(mask)    # mean over valid entries only
+```
+
+This ensures the autoencoder is trained **only on reconstruction error at observed time points**, and gradients from missing sessions never backpropagate.
+
+#### 5. Masked losses — ClusterNet fine-tuning (`dtc_longitudinal.py`)
+
+The same masking logic is applied to **both** loss components during end-to-end ClusterNet training:
+
+```python
+# MSE reconstruction loss (masked)
+loss_mse = loss1(inputs.squeeze(1), x_reconstr)
+loss_mse = torch.sum(loss_mse * mask) / torch.sum(mask)
+
+# KL divergence clustering loss (masked)
+loss_KL = kl_loss_function(P, Q)
+loss_KL = torch.sum(loss_KL * mask) / torch.sum(mask)
+
+# Joint loss
+total_loss = loss_mse + loss_KL
+```
+
+By masking both terms, the cluster assignment probabilities Q and the target distribution P are also effectively conditioned on valid observations only.
+
+### Summary diagram
+
+```
+Raw Excel data
+    │
+    │  NaN (missing session)
+    ▼
+fillna(999) ──────────────────────────────────────────────┐
+    │                                                      │
+    ▼                                                      ▼
+Z-score normalization                          mask = (X_re != 0)
+(999 → large outlier)                          shape: (N, 8, T)
+    │                                               [1=valid, 0=missing]
+    ▼
+Reshape → X_re (N, 8, T)
+    │
+    ├──────────────────────────────────┐
+    ▼                                  ▼
+Forward pass (TAE / ClusterNet)     mask applied to loss
+  → x_reconstr, Q, P               loss = Σ(loss_elem * mask) / Σ(mask)
+                                    ✓ gradients only from valid sessions
+```
+
+> **Design rationale:** This approach is consistent with the strategy described in Liu et al. (2022, IEEE BIBM), which demonstrated that masking-based training outperforms imputation on health record data with irregular missingness — a setting closely analogous to this study's longitudinal clinical gait data.
 
 ---
 
@@ -228,8 +324,7 @@ The grid search over cluster counts (n = 3 to 10) shows that **n = 5** achieves 
 The figure below shows the **average hip joint angle trajectories** on the affected side across 5 recovery groups, compared against non-disabled reference data (black dashed line ± 1 SD shaded region). Trajectories are shown at three clinical time points: 3rd, 8th, and 24th week post-stroke.
 
 <p align="center">
-  <img src="docs\hip_angle_recovery.png"
-"C:\Users\deoha\Downloads\files (5)\README.md"" alt="Long-term hip angle recovery trajectories by group" width="420"/>
+  <img src="docs/figures/hip_angle_recovery.png" alt="Long-term hip angle recovery trajectories by group" width="420"/>
 </p>
 
 <p align="center">
