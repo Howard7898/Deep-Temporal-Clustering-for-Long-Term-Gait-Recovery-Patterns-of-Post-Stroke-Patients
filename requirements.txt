@@ -1,0 +1,40 @@
+# ============================================================
+# DTCRP — Requirements
+# Deep Temporal Clustering for Gait Recovery Patterns
+# ============================================================
+# Verified environment:
+#   OS     : Ubuntu 22.04 LTS
+#   CUDA   : 11.8
+#   cuDNN  : 8.7.0
+#   Driver : 535.183.01
+# ============================================================
+
+python==3.8.18
+
+# Core numerical & data
+numpy==1.24.3
+scipy==1.10.1
+pandas==2.0.3
+
+# Deep learning
+pytorch==2.1.0
+pytorch-cuda==11.8   # Install via conda: conda install pytorch pytorch-cuda=11.8 -c pytorch -c nvidia
+
+# Machine learning & clustering
+scikit-learn==1.3.0
+
+# Time-series preprocessing
+tslearn==0.6.2
+
+# Visualization
+matplotlib==3.7.2
+
+# ============================================================
+# Installation (conda recommended):
+#
+#   conda create -n dtcrp python=3.8.18
+#   conda activate dtcrp
+#   conda install pytorch==2.1.0 pytorch-cuda=11.8 -c pytorch -c nvidia
+#   pip install numpy==1.24.3 scipy==1.10.1 pandas==2.0.3 \
+#               scikit-learn==1.3.0 tslearn==0.6.2 matplotlib==3.7.2
+# ============================================================
