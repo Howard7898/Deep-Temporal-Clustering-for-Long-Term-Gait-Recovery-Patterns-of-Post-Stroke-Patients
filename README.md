@@ -2,7 +2,12 @@
 
 > **Deep Temporal Clustering for Long-Term Gait Recovery Patterns of Post-Stroke Patients using Joint Kinematic Data**  
 > Published at *2025 11th International Conference on Computing and Artificial Intelligence (ICCAI)*  
-> DOI: [10.1109/ICCAI66501.2025.00105](https://doi.org/10.1109/ICCAI66501.2025.00105)
+> 📄 **Paper:** [IEEE Xplore](https://doi.org/10.1109/ICCAI66501.2025.00105) · DOI: `10.1109/ICCAI66501.2025.00105`  
+> 🎓 **Thesis / Full Report:** _링크를 여기에 삽입하세요 (예: 학교 리포지터리, ResearchGate, arXiv 등)_
+
+<!-- 학위논문 링크 삽입 예시:
+> 🎓 **Master's Thesis:** [Sungkyunkwan University Repository](https://YOUR_THESIS_LINK_HERE)
+-->
 
 ---
 
@@ -201,9 +206,11 @@ hyper_dict = {
 
 ---
 
-## Performance Comparison
+## Results & Visualization
 
-Silhouette scores by number of clusters (n):
+### Silhouette Score vs. Number of Clusters
+
+The grid search over cluster counts (n = 3 to 10) shows that **n = 5** achieves the best balance between silhouette score and cluster distribution uniformity.
 
 | Algorithm | 3 | 4 | **5** | 6 | 7 | 8 | 9 | 10 |
 |-----------|---|---|-------|---|---|---|---|----|
@@ -212,7 +219,31 @@ Silhouette scores by number of clusters (n):
 | k-shape | 0.135 | 0.108 | 0.071 | 0.065 | 0.074 | 0.082 | 0.042 | 0.011 |
 | **DTCRP (ours)** | **0.853** | **0.419** | **0.426** | **0.411** | **0.311** | **0.389** | **0.295** | **0.377** |
 
-> **Note:** Results may vary slightly across machines due to PyTorch's internal random operations. If results differ significantly, verify your environment matches the requirements above.
+> Results may vary slightly across machines due to PyTorch's stochastic internals. If results differ significantly, verify your environment against `requirements.txt`.
+
+---
+
+### Long-Term Hip Angle Recovery Trajectories by Group
+
+The figure below shows the **average hip joint angle trajectories** on the affected side across 5 recovery groups, compared against non-disabled reference data (black dashed line ± 1 SD shaded region). Trajectories are shown at three clinical time points: 3rd, 8th, and 24th week post-stroke.
+
+<p align="center">
+  <img src="docs/figures/hip_angle_recovery.png" alt="Long-term hip angle recovery trajectories by group" width="420"/>
+</p>
+
+<p align="center">
+  <em>Figure: Average hip angle trajectories (affected side) per recovery group at weeks 3, 8, and 24 post-stroke.<br>
+  Groups: Group 0 (n=5), Group 1 (n=9), Group 2 (n=9), Group 3 (n=5), Group 4 (n=3).<br>
+  Dashed line = non-disabled reference. Shaded region = ±1 SD of non-disabled.</em>
+</p>
+
+**Key observations:**
+- **Group 3** shows the most severe early-stage deviation from normative gait but achieves the greatest long-term recovery by week 24, most closely approximating the non-disabled trajectory.
+- **Group 2** starts near the non-disabled baseline but gradually diverges over time, suggesting less effective long-term intervention outcomes.
+- **Group 1** (largest group, n=9) maintains a broadly consistent trajectory throughout the rehabilitation period.
+- By **week 24**, most groups converge toward the non-disabled reference range, reflecting overall rehabilitation progress.
+
+> Additional joint-level plots (knee, ankle) and spatiotemporal metric analyses can be found in the paper.
 
 ---
 
