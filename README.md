@@ -228,7 +228,7 @@ The grid search over cluster counts (n = 3 to 10) shows that **n = 5** achieves 
 The figure below shows the **average hip joint angle trajectories** on the affected side across 5 recovery groups, compared against non-disabled reference data (black dashed line ± 1 SD shaded region). Trajectories are shown at three clinical time points: 3rd, 8th, and 24th week post-stroke.
 
 <p align="center">
-  <img src=""C:\Users\deoha\Downloads\files (5)\hip_angle_recovery.png"
+  <img src="C:\Users\deoha\Downloads\files (5)\hip_angle_recovery.png"
 "C:\Users\deoha\Downloads\files (5)\README.md"" alt="Long-term hip angle recovery trajectories by group" width="420"/>
 </p>
 
