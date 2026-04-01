@@ -3,7 +3,7 @@
 > **Deep Temporal Clustering for Long-Term Gait Recovery Patterns of Post-Stroke Patients using Joint Kinematic Data**  
 > Published at *2025 11th International Conference on Computing and Artificial Intelligence (ICCAI)*  
 > 📄 **Paper:** [IEEE Xplore](https://doi.org/10.1109/ICCAI66501.2025.00105) · DOI: `10.1109/ICCAI66501.2025.00105`  
-> 🎓 **Thesis / Full Report:** SKKU dCollection(https://dcollection.skku.edu/public_resource/pdf/000000184755_20260401134348.pdf)
+> 🎓 **Thesis / Full Report:** [SKKU dCollection](https://dcollection.skku.edu/public_resource/pdf/000000184755_20260401134348.pdf)
 
 <!-- 학위논문 링크 삽입 예시:
 > 🎓 **Master's Thesis:** [Sungkyunkwan University Repository](https://YOUR_THESIS_LINK_HERE)
