@@ -1,0 +1,16 @@
+# Patient data (IRB protected — never commit)
+data/
+*.xlsx
+*.pkl
+
+# Outputs & weights
+models_weights/
+results/
+results_tot/
+figures/
+
+# Python / OS
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+.DS_Store

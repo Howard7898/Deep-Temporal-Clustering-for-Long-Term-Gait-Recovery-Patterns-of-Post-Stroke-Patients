@@ -3,11 +3,8 @@
 > **Deep Temporal Clustering for Long-Term Gait Recovery Patterns of Post-Stroke Patients using Joint Kinematic Data**  
 > Published at *2025 11th International Conference on Computing and Artificial Intelligence (ICCAI)*  
 > 📄 **Paper:** [IEEE Xplore](https://doi.org/10.1109/ICCAI66501.2025.00105) · DOI: `10.1109/ICCAI66501.2025.00105`  
-> 🎓 **Thesis / Full Report:** [SKKU dCollection](https://dcollection.skku.edu/public_resource/pdf/000000184755_20260401134348.pdf)
+> 🎓 **Thesis / Full Report:** [SKKU dCollection](https://dcollection.skku.edu/common/orgView/000000184755)
 
-<!-- 학위논문 링크 삽입 예시:
-> 🎓 **Master's Thesis:** [Sungkyunkwan University Repository](https://YOUR_THESIS_LINK_HERE)
--->
 
 ---
 
@@ -22,6 +19,9 @@ The model combines a **Temporal AutoEncoder (TAE)** and a **Temporal Clustering 
 - Clustered 31 post-stroke patients into **5 distinct gait recovery groups**
 - Achieved an average **Silhouette Score of 0.4256** at the optimal cluster count (n=5)
 - Outperformed traditional baselines: k-means (Euclidean), k-means (DTW), and k-shape
+
+> **Note on reported numbers.** All results in this README (Key Results and the table under *Results & Visualization*) are those of the **ICCAI 2025 conference paper**.
+> The master's thesis (Sungkyunkwan University, 2025) refined the experiments; its Table 3.2 reports silhouette scores of **0.3995–0.6825 for n = 3–8**, compared with 0.0327–0.2145 for k-means (Euclidean), k-means (DTW) and k-shape.
 
 ---
 
@@ -63,21 +63,21 @@ Input Data (x)
 ```
 L_total = α * L_rec + β * L_clus
 ```
-where `L_rec` is MSE reconstruction loss and `L_clus` is KL divergence clustering loss.
+where `L_rec` is MSE reconstruction loss and `L_clus` is KL divergence clustering loss (α = β = 1 in this implementation).
 
 ---
 
 ## Repository Structure
 
 ```
-DTCRP/
+.
 ├── dtc_longitudinal.py          # Main training & evaluation script
 ├── models.py                    # TAE encoder/decoder & ClusterNet definitions
 ├── config1.py                   # Hyperparameter configuration (argparse)
 ├── load_long_custom_data.py     # Custom dataset loader for longitudinal gait data
 ├── utils.py                     # Similarity metrics for clustering
 ├── requirements.txt             # Dependency list
-├── environment.txt              # Full conda environment snapshot
+├── docs/hip_angle_recovery.png  # Figure used in this README
 └── README.md                    # This file
 ```
 
@@ -99,12 +99,12 @@ DTCRP/
 | matplotlib | 3.7.2 |
 | tslearn | 0.6.2 |
 
-Install dependencies:
+Install dependencies (conda recommended for the CUDA build of PyTorch):
 ```bash
+conda create -n dtcrp python=3.8.18 -y && conda activate dtcrp
+conda install pytorch==2.1.0 pytorch-cuda=11.8 -c pytorch -c nvidia -y
 pip install -r requirements.txt
 ```
-
-> For the full conda environment snapshot, refer to `environment.txt`.
 
 ---
 
@@ -225,7 +225,8 @@ Forward pass (TAE / ClusterNet)     mask applied to loss
 ## Quick Start
 
 ```bash
-cd DTCRP/
+git clone https://github.com/Howard7898/Deep-Temporal-Clustering-for-Long-Term-Gait-Recovery-Patterns-of-Post-Stroke-Patients.git
+cd Deep-Temporal-Clustering-for-Long-Term-Gait-Recovery-Patterns-of-Post-Stroke-Patients
 python dtc_longitudinal.py
 ```
 
@@ -234,20 +235,20 @@ python dtc_longitudinal.py
 ## Configuration & Tuning
 
 ### Random Seed
-Modify `SEED` on **line 207** of `dtc_longitudinal.py`:
+Change `SEED` in the `__main__` block of `dtc_longitudinal.py`:
 ```python
 SEED = 42  # Change this value to try different seeds
 ```
 
 ### Cluster Range
-Modify **lines 238–239** of `dtc_longitudinal.py`:
+Change `init_cluster` / `end_cluster` in `dtc_longitudinal.py`:
 ```python
 init_cluster = 3   # Starting number of clusters
 end_cluster  = 10  # Ending number of clusters
 ```
 
 ### Hyperparameters
-Modify **line 253** of `dtc_longitudinal.py`:
+Change `hyper_dict` in `dtc_longitudinal.py`:
 ```python
 hyper_dict = {
     'lr_ae':         [1e-4],   # Learning rate for TAE pretraining
