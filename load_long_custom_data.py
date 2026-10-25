@@ -9,10 +9,12 @@ Loads joint angle and angular velocity data from two Excel files, applies
 z-score normalization, restructures into patient-wise 3D tensors, and
 generates a binary mask to handle missing gait sessions.
 
-Missing data handling strategy:
-  - Missing values (NaN) are replaced with 999 as a sentinel value.
-  - A binary mask (1=valid, 0=missing) is created to exclude these positions
-    from loss computation during training.
+Missing data handling strategy (zero-masking, thesis Sec. 2.4.1):
+  - Missing values (NaN) are NOT imputed.
+  - Each sample is z-score standardized using only its observed values.
+  - Missing positions are then set to 0 and a binary mask (1=observed,
+    0=missing) is built directly from the NaN positions, so that they are
+    excluded from every loss term during training.
 
 Data format:
   - Each patient has up to 8 assessment sessions
@@ -35,7 +37,6 @@ import pandas as pd
 import torch
 from sklearn.preprocessing import LabelEncoder
 from torch.utils.data import Dataset, DataLoader, random_split
-from tslearn.preprocessing import TimeSeriesScalerMeanVariance
 
 
 # ══════════════════════════════════════════════════════════
@@ -93,11 +94,12 @@ def get_long_loader(args) -> tuple:
     Processing pipeline:
       1. Load joint angle and angular velocity Excel files.
       2. Concatenate into a single feature matrix.
-      3. Replace NaN (missing sessions) with sentinel value 999.
-      4. Apply z-score normalization (mean=0, std=1) per feature.
-      5. Reshape from (N_rows, F) to (N_patients, 8_sessions, T, F).
-      6. Create binary mask: 1 where original value ≠ 0, else 0.
-      7. Wrap in CustomDataset.
+      3. Z-score standardize each sample (row) over its observed values,
+         ignoring NaN (same formula as tslearn TimeSeriesScalerMeanVariance).
+      4. Reshape to (N_patients, 8_sessions, T).
+      5. Build the binary mask from the NaN positions (1=observed, 0=missing)
+         and set missing positions to 0 (zero-masking).
+      6. Wrap in CustomDataset.
 
     ⚠️  Before running, set the correct file paths for:
         - `filename_angle` : path to the joint angle Excel file
@@ -133,14 +135,21 @@ def get_long_loader(args) -> tuple:
     # Concatenate angle and velocity features along columns
     df_total = pd.concat([df_angle, df_vel], axis=1)
 
-    # ── Step 2: Handle missing data ───────────────────────────────
-    # Replace NaN with sentinel value 999 (will be masked out during training)
-    df_total    = df_total.fillna(999)
-    tensor_data = torch.tensor(df_total.values, dtype=torch.float)
+    # ── Step 2: Keep missing values as NaN (no imputation) ────────
+    # float32 → float64 mirrors the original torch.float → tslearn path,
+    # so complete samples are standardized exactly as before.
+    X_raw = df_total.values.astype(np.float32).astype(np.float64)
 
-    # ── Step 3: Z-score normalization ────────────────────────────
-    # TimeSeriesScalerMeanVariance normalizes each feature to mean=0, std=1
-    X_scaled = TimeSeriesScalerMeanVariance().fit_transform(tensor_data.cpu().numpy())
+    # ── Step 3: Z-score standardization over observed values ─────
+    # Each row (one evaluation week = one 600-step gait sequence) is
+    # standardized with its own NaN-aware mean/std. Equivalent to
+    # tslearn's TimeSeriesScalerMeanVariance (mu=0, std=1, std=0 → 1).
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", category=RuntimeWarning)  # all-NaN rows
+        row_mean = np.nanmean(X_raw, axis=1, keepdims=True)
+        row_std  = np.nanstd(X_raw, axis=1, keepdims=True)
+    row_std[row_std == 0.0] = 1.0
+    X_scaled = ((X_raw - row_mean) / row_std)[:, :, np.newaxis]  # (N_rows, T, 1)
 
     # ── Step 4: Reshape to patient-level 3D structure ─────────────
     # Each patient has exactly 8 consecutive rows (one per session).
@@ -176,10 +185,11 @@ def get_long_loader(args) -> tuple:
     y     = LabelEncoder().fit_transform(y)  # Ensures labels start from 0
     assert y.min() == 0, "Label encoding failed: minimum label is not 0."
 
-    # ── Step 6: Create binary mask ────────────────────────────────
-    # Mask = 1 where data is valid (original data ≠ 0 sentinel), else 0
-    # Note: After scaling, the 999 sentinel is also scaled, so we check ≠ 0
-    mask = np.where(X_re != 0, 1, 0).astype(float)
+    # ── Step 6: Zero-masking ──────────────────────────────────────
+    # Mask = 1 where a value was observed, 0 where it was missing (NaN).
+    # Missing positions are set to 0 and excluded from every loss term.
+    mask = (~np.isnan(X_re)).astype(float)
+    X_re = np.nan_to_num(X_re, nan=0.0)
     mask = torch.tensor(mask, dtype=torch.float)
 
     # ── Step 7: Wrap in CustomDataset ────────────────────────────
