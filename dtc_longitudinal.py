@@ -215,9 +215,11 @@ def train_ClusterNET(epoch: int, args, verbose: bool) -> tuple:
 
     The total loss combines:
       - MSE reconstruction loss (masked): measures data reconstruction quality
-      - KL divergence clustering loss (masked): refines cluster assignments
+      - KL divergence clustering loss: refines cluster assignments (patient level)
 
-    Both losses are masked to exclude missing gait session data.
+    The binary mask excludes missing gait sessions from the reconstruction loss.
+    The KL term is already a scalar, so the mask line applied to it leaves its
+    value unchanged (kept as-is to reproduce the reported results).
 
     Args:
         epoch   (int):  Current epoch index (0-based).
@@ -253,9 +255,11 @@ def train_ClusterNET(epoch: int, args, verbose: bool) -> tuple:
         loss_mse = loss1(inputs.squeeze(1), x_reconstr)
         loss_mse = torch.sum(loss_mse * mask) / torch.sum(mask)
 
-        # ── KL divergence loss (masked) ───────────────────
+        # ── KL divergence loss ────────────────────────────
         loss_KL = kl_loss_function(P, Q)
         loss_KL = torch.sum(loss_KL * mask) / torch.sum(mask)
+        # kl_loss_function returns a scalar, so the line above equals the unmasked KL.
+        # It is kept unchanged so that the reported results are reproduced exactly.
 
         # ── Total loss & backprop ─────────────────────────
         total_loss = loss_mse + loss_KL

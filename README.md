@@ -121,7 +121,7 @@ filename_angle = "data/GaitCycleLong/your_angle_file.xlsx"
 filename_vel   = "data/GaitCycleLong/your_velocity_file.xlsx"
 ```
 
-Each patient has **8 longitudinal measurement sessions** conducted at weeks **2, 3, 4, 6, 8, 10, 12, and 24** post-stroke. Due to patient dropout, early discharge, or incomplete gait cycles, some sessions may be missing.
+Each patient has **up to 8 longitudinal measurement sessions**, scheduled at weeks **2, 3, 4, 6, 8, 10, 12, and 24** post-stroke. Due to patient dropout, early discharge, or incomplete gait cycles, some sessions may be missing.
 
 ---
 
@@ -129,7 +129,7 @@ Each patient has **8 longitudinal measurement sessions** conducted at weeks **2,
 
 ### Why masking?
 
-Clinical longitudinal data inevitably contains missing sessions — patients may withdraw from the study, be discharged early, or fail to complete a valid gait cycle at a given time point. Naive imputation strategies (e.g., forward-filling, mean substitution) risk distorting the sensitive temporal structure of gait trajectories and introducing spurious recovery patterns. To avoid this, this study adopts a **zero-masking approach** (thesis Sec. 2.4.1): missing values are replaced with zeros and excluded from the learning process, so the model trains on all available data while missing positions never enter any loss computation.
+Clinical longitudinal data inevitably contains missing sessions — patients may withdraw from the study, be discharged early, or fail to complete a valid gait cycle at a given time point. Naive imputation strategies (e.g., forward-filling, mean substitution) risk distorting the sensitive temporal structure of gait trajectories and introducing spurious recovery patterns. To avoid this, this study adopts a **zero-masking approach** (thesis Sec. 2.4.1): missing values are replaced with zeros and excluded from the learning process. In this implementation the exclusion is applied to the **reconstruction (MSE) loss**: missing positions contribute nothing to it, so the model trains on all available data without imputing any values.
 
 ### Step-by-step mechanism
 
@@ -173,26 +173,26 @@ loss_mse = loss_ae(inputs.squeeze(1), x_reconstr)          # element-wise MSE, s
 loss_mse = torch.sum(loss_mse * mask) / torch.sum(mask)    # mean over valid entries only
 ```
 
-This ensures the autoencoder is trained **only on reconstruction error at observed time points**, and gradients from missing sessions never backpropagate.
+This ensures the autoencoder is trained **only on reconstruction error at observed time points**: errors at missing positions contribute nothing to the loss or its gradients.
 
-#### 5. Masked losses — ClusterNet fine-tuning (`dtc_longitudinal.py`)
+#### 5. ClusterNet fine-tuning losses (`dtc_longitudinal.py`)
 
-The same masking logic is applied to **both** loss components during end-to-end ClusterNet training:
+During end-to-end ClusterNet training, the reconstruction term uses the same masked MSE, and the KL clustering term is added:
 
 ```python
 # MSE reconstruction loss (masked)
 loss_mse = loss1(inputs.squeeze(1), x_reconstr)
 loss_mse = torch.sum(loss_mse * mask) / torch.sum(mask)
 
-# KL divergence clustering loss (masked)
+# KL divergence clustering loss
 loss_KL = kl_loss_function(P, Q)
-loss_KL = torch.sum(loss_KL * mask) / torch.sum(mask)
+loss_KL = torch.sum(loss_KL * mask) / torch.sum(mask)   # equals loss_KL (see note)
 
 # Joint loss
 total_loss = loss_mse + loss_KL
 ```
 
-By masking both terms, the cluster assignment probabilities Q and the target distribution P are also effectively conditioned on valid observations only.
+> **Note on the KL term.** `kl_loss_function` already returns a scalar — the batch-mean KL divergence between the patient-level distributions P and Q (shape `(batch, n_clusters)`). Multiplying a scalar by the mask and dividing by the mask sum returns the same value, so this line does **not** mask the KL term. It is kept unchanged so that the reported results are reproduced exactly. Missing sessions influence the clustering term only through the zero-masked input that the encoder receives; there is no time-point-level KL loss to mask.
 
 ### Summary diagram
 
@@ -208,11 +208,11 @@ Reshape → X_re (N, 8, T) ─────────────────�
     │                              mask = ~isnan(X_re)   [1=observed, 0=missing]
     ▼                              X_re[NaN] = 0         (zero-masking)
 Forward pass (TAE / ClusterNet)
-  → x_reconstr, Q, P               loss = Σ(loss_elem * mask) / Σ(mask)
-                                    ✓ gradients only from observed values
+  → x_reconstr, Q, P               L_rec = Σ(loss_elem * mask) / Σ(mask)
+                                    ✓ reconstruction loss from observed values only
 ```
 
-> **Design rationale:** This approach is consistent with the strategy described in Liu et al. (2022, IEEE BIBM), which demonstrated that masking-based training outperforms imputation on health record data with irregular missingness — a setting closely analogous to this study's longitudinal clinical gait data.
+> **Design rationale:** Imputation (interpolation, forward/backward filling) was avoided because it can distort gait trajectory characteristics. The thesis cites Liu et al. (2022, IEEE BIBM) in support of keeping the original signal structure by masking rather than imputing missing values.
 
 ---
 
